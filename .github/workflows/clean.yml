@@ -1,0 +1,35 @@
+name: Daily IPTV Playlist Cleaner
+
+on:
+  schedule:
+    - cron: '0 0 * * *' # Runs automatically every midnight UTC
+  workflow_dispatch: # Allows manual trigger anytime from GitHub UI
+
+permissions:
+  contents: write
+
+jobs:
+  clean-playlist:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Dependencies
+        run: pip install requests urllib3
+
+      - name: Run Cleaner Script
+        run: python clean_playlist.py
+
+      - name: Commit and Push Updated Playlist
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add sports_active.m3u
+          git commit -m "Auto-update active IPTV streams [skip ci]" || exit 0
+          git push
