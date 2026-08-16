@@ -1,13 +1,16 @@
 from http.server import HTTPServer, BaseHTTPRequestHandler
+from socketserver import ThreadingMixIn
 import os
 import urllib.parse
 import requests
 import re
+import time
 import urllib3
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 PORT = int(os.environ.get("PORT", 5000))
+CACHE_TTL = 1800  # Cache stream manifest token URL for 30 minutes
 
 CHANNELS = {
     "yes-1": ("Yes 1", "Israel"),
@@ -20,15 +23,41 @@ CHANNELS = {
     "one-2": ("ONE 2 HD", "Sports"),
 }
 
-HEADERS = {
+STREAM_CACHE = {}  # ch_id -> (stream_url, timestamp)
+
+# Use HTTP connection pooling for ultra-fast response times
+session = requests.Session()
+session.headers.update({
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
     "Referer": "https://1nextbet7.tv/",
     "Origin": "https://1nextbet7.tv"
-}
+})
+
+def get_stream_url(ch_id, force_fresh=False):
+    now = time.time()
+    if not force_fresh and ch_id in STREAM_CACHE:
+        cached_url, ts = STREAM_CACHE[ch_id]
+        if now - ts < CACHE_TTL:
+            return cached_url
+
+    page_url = f"https://1nextbet7.tv/kanal-izle/{ch_id}"
+    try:
+        res = session.get(page_url, timeout=5, verify=False)
+        sources = re.findall(r'<source[^>]+src=["\']([^"\']+)', res.text, re.IGNORECASE)
+        for s in sources:
+            if any(ext in s.lower() for ext in [".css", ".m3u8", "mono"]):
+                STREAM_CACHE[ch_id] = (s, now)
+                return s
+    except Exception:
+        pass
+    return None
+
+class ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
+    daemon_threads = True
 
 class HLSProxyHandler(BaseHTTPRequestHandler):
     def log_message(self, format, *args):
-        pass  # Suppress default log output
+        pass  # Suppress default log clutter
 
     def do_GET(self):
         parsed = urllib.parse.urlparse(self.path)
@@ -53,28 +82,26 @@ class HLSProxyHandler(BaseHTTPRequestHandler):
             self.wfile.write("\n".join(m3u).encode("utf-8"))
             return
 
-        # 2. Serve M3U8 Manifest with rewritten segment URLs
+        # 2. Serve M3U8 Manifest with cached token and rewritten segment URLs
         if path.startswith("/live/") and path.endswith(".m3u8"):
             ch_id = path.replace("/live/", "").replace(".m3u8", "")
             if ch_id not in CHANNELS:
                 self.send_error(404, "Channel Not Found")
                 return
 
-            page_url = f"https://1nextbet7.tv/kanal-izle/{ch_id}"
+            stream_url = get_stream_url(ch_id)
+            if not stream_url:
+                self.send_error(502, "Stream URL Not Found")
+                return
+
             try:
-                res = requests.get(page_url, headers=HEADERS, timeout=5, verify=False)
-                sources = re.findall(r'<source[^>]+src=["\']([^"\']+)', res.text, re.IGNORECASE)
-                stream_url = None
-                for s in sources:
-                    if any(ext in s.lower() for ext in [".css", ".m3u8", "mono"]):
-                        stream_url = s
-                        break
+                m3u8_res = session.get(stream_url, timeout=5, verify=False)
+                # If cached token expired early (403/404), refresh token and retry
+                if not m3u8_res.ok:
+                    stream_url = get_stream_url(ch_id, force_fresh=True)
+                    if stream_url:
+                        m3u8_res = session.get(stream_url, timeout=5, verify=False)
 
-                if not stream_url:
-                    self.send_error(502, "Stream URL Not Found")
-                    return
-
-                m3u8_res = requests.get(stream_url, headers=HEADERS, timeout=5, verify=False)
                 if not m3u8_res.ok:
                     self.send_error(502, f"Upstream error {m3u8_res.status_code}")
                     return
@@ -95,6 +122,7 @@ class HLSProxyHandler(BaseHTTPRequestHandler):
                 self.send_response(200)
                 self.send_header("Content-Type", "application/vnd.apple.mpegurl")
                 self.send_header("Access-Control-Allow-Origin", "*")
+                self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
                 self.end_headers()
                 self.wfile.write("\n".join(new_lines).encode("utf-8"))
                 return
@@ -103,7 +131,7 @@ class HLSProxyHandler(BaseHTTPRequestHandler):
                 self.send_error(500, str(e))
                 return
 
-        # 3. Serve Video TS Segment Stream
+        # 3. Serve Video TS Segment Stream with high-speed chunk streaming
         if path == "/segment":
             target_url = query.get("url", [None])[0]
             if not target_url:
@@ -111,7 +139,7 @@ class HLSProxyHandler(BaseHTTPRequestHandler):
                 return
 
             try:
-                with requests.get(target_url, headers=HEADERS, timeout=10, stream=True, verify=False) as seg_res:
+                with session.get(target_url, timeout=10, stream=True, verify=False) as seg_res:
                     self.send_response(200)
                     self.send_header("Content-Type", "video/mp2t")
                     self.send_header("Access-Control-Allow-Origin", "*")
@@ -128,9 +156,9 @@ class HLSProxyHandler(BaseHTTPRequestHandler):
         self.send_error(404)
 
 def main():
-    server = HTTPServer(("0.0.0.0", PORT), HLSProxyHandler)
+    server = ThreadedHTTPServer(("0.0.0.0", PORT), HLSProxyHandler)
     print(f"============================================================")
-    print(f" HLS Stream Proxy running on port {PORT}")
+    print(f" High-Performance HLS Stream Proxy running on port {PORT}")
     print(f"============================================================")
     server.serve_forever()
 
