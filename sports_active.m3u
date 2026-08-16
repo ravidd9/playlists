@@ -2,31 +2,35 @@
 #EXTINF:-1 tvg-id="Yes1.il" group-title="Israel",Yes 1
 #EXTVLCOPT:http-referrer=https://1nextbet7.tv/
 #EXTVLCOPT:http-user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64)
-https://2lacasaba.site/yessport1/mono.css?token=6974a5f2fb2f904ab1bda6db73e1cd30611db8f5&expires=1786899012
+https://2lacasaba.site/yessport1/mono.css?token=8748bbcd52dd25ae11db5a1dac4ba2f95c59fbc1&expires=1786899388
 #EXTINF:-1 tvg-id="Yes2.il" group-title="Israel",Yes 2
 #EXTVLCOPT:http-referrer=https://1nextbet7.tv/
 #EXTVLCOPT:http-user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64)
-https://2lacasaba.site/yessport2/mono.css?token=abf8d7ede9afaf0c45aac473e9c1534519b99800&expires=1786899013
+https://2lacasaba.site/yessport2/mono.css?token=8748bbcd52dd25ae11db5a1dac4ba2f95c59fbc1&expires=1786899388
 #EXTINF:-1 tvg-id="Yes3.il" group-title="Israel",Yes 3
 #EXTVLCOPT:http-referrer=https://1nextbet7.tv/
 #EXTVLCOPT:http-user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64)
-https://2lacasaba.site/yessport3/mono.css?token=abf8d7ede9afaf0c45aac473e9c1534519b99800&expires=1786899013
+https://2lacasaba.site/yessport3/mono.css?token=8748bbcd52dd25ae11db5a1dac4ba2f95c59fbc1&expires=1786899388
 #EXTINF:-1 tvg-id="Yes4.il" group-title="Israel",Yes 4
 #EXTVLCOPT:http-referrer=https://1nextbet7.tv/
 #EXTVLCOPT:http-user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64)
-https://2lacasaba.site/yessport4/mono.css?token=cb6f89a470d641805d1affc8aa855dd0077fad65&expires=1786899014
+https://2lacasaba.site/yessport4/mono.css?token=740fab046f2341a3c8524410c8247d1ecb3b44ad&expires=1786899389
 #EXTINF:-1 tvg-id="Yes5.il" group-title="Israel",Yes 5
 #EXTVLCOPT:http-referrer=https://1nextbet7.tv/
 #EXTVLCOPT:http-user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64)
-https://2lacasaba.site/yessport5/mono.css?token=cb6f89a470d641805d1affc8aa855dd0077fad65&expires=1786899014
+https://2lacasaba.site/yessport5/mono.css?token=740fab046f2341a3c8524410c8247d1ecb3b44ad&expires=1786899389
+#EXTINF:-1 tvg-id="Kan11.il" group-title="Israel",Kan 11
+#EXTVLCOPT:http-referrer=https://1nextbet7.tv/
+#EXTVLCOPT:http-user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64)
+https://2lacasaba.site/kan11/mono.css?token=ab1e8ee07bde548b5d42d4710ce216956ce5f7c5&expires=1786899390
 #EXTINF:-1 tvg-id="One.il" group-title="Sports",ONE HD
 #EXTVLCOPT:http-referrer=https://1nextbet7.tv/
 #EXTVLCOPT:http-user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64)
-https://2lacasaba.site/onesport/mono.css?token=afe1b4458fe2a0c5352b9de3cb0dee015caee361&expires=1786899015
+https://2lacasaba.site/onesport/mono.css?token=ab1e8ee07bde548b5d42d4710ce216956ce5f7c5&expires=1786899390
 #EXTINF:-1 tvg-id="One2.il" group-title="Sports",ONE 2 HD
 #EXTVLCOPT:http-referrer=https://1nextbet7.tv/
 #EXTVLCOPT:http-user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64)
-https://2lacasaba.site/onesport2/mono.css?token=afe1b4458fe2a0c5352b9de3cb0dee015caee361&expires=1786899015
+https://2lacasaba.site/onesport2/mono.css?token=ab1e8ee07bde548b5d42d4710ce216956ce5f7c5&expires=1786899390
 #EXTINF:-1 tvg-id="30AGolfKingdom.us@SD" tvg-logo="https://i.imgur.com/Lv53nh4.png" group-title="Sports",30A Golf Kingdom (720p)
 https://30a-tv.com/feeds/vidaa/golf.m3u8
 #EXTINF:-1 tvg-id="ASpor.tr@SD" tvg-logo="https://i.imgur.com/ZhkZzLf.png" group-title="Sports",A Spor (1080p)
