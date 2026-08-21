@@ -25,7 +25,6 @@ CHANNELS = {
 
 STREAM_CACHE = {}  # ch_id -> (stream_url, timestamp)
 
-# Use HTTP connection pooling for ultra-fast response times
 session = requests.Session()
 session.headers.update({
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
@@ -62,7 +61,6 @@ class HLSProxyHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         parsed = urllib.parse.urlparse(self.path)
         path = parsed.path
-        query = urllib.parse.parse_qs(parsed.query)
 
         proto = self.headers.get("X-Forwarded-Proto", "http")
 
@@ -82,7 +80,7 @@ class HLSProxyHandler(BaseHTTPRequestHandler):
             self.wfile.write("\n".join(m3u).encode("utf-8"))
             return
 
-        # 2. Serve M3U8 Manifest with cached token and rewritten segment URLs
+        # 2. Serve M3U8 Manifest with direct segment URLs appended with #.ts
         if path.startswith("/live/") and path.endswith(".m3u8"):
             ch_id = path.replace("/live/", "").replace(".m3u8", "")
             if ch_id not in CHANNELS:
@@ -96,7 +94,6 @@ class HLSProxyHandler(BaseHTTPRequestHandler):
 
             try:
                 m3u8_res = session.get(stream_url, timeout=5, verify=False)
-                # If cached token expired early (403/404), refresh token and retry
                 if not m3u8_res.ok:
                     stream_url = get_stream_url(ch_id, force_fresh=True)
                     if stream_url:
@@ -106,16 +103,14 @@ class HLSProxyHandler(BaseHTTPRequestHandler):
                     self.send_error(502, f"Upstream error {m3u8_res.status_code}")
                     return
 
-                host = self.headers.get("Host", f"127.0.0.1:{PORT}")
                 lines = m3u8_res.text.splitlines()
                 new_lines = []
 
                 for line in lines:
                     line_str = line.strip()
                     if line_str.startswith("http"):
-                        # Rewrite segment URLs to route through proxy with video/mp2t (.ts) content
-                        encoded_url = urllib.parse.quote(line_str)
-                        new_lines.append(f"{proto}://{host}/segment?url={encoded_url}&ext=.ts")
+                        # Direct video segment URL with #.ts anchor so media player treats chunk as MPEG-TS
+                        new_lines.append(f"{line_str}#.ts")
                     else:
                         new_lines.append(line)
 
@@ -131,34 +126,12 @@ class HLSProxyHandler(BaseHTTPRequestHandler):
                 self.send_error(500, str(e))
                 return
 
-        # 3. Serve Video TS Segment Stream with high-speed chunk streaming
-        if path == "/segment":
-            target_url = query.get("url", [None])[0]
-            if not target_url:
-                self.send_error(400, "Missing url parameter")
-                return
-
-            try:
-                with session.get(target_url, timeout=10, stream=True, verify=False) as seg_res:
-                    self.send_response(200)
-                    self.send_header("Content-Type", "video/mp2t")
-                    self.send_header("Access-Control-Allow-Origin", "*")
-                    self.end_headers()
-
-                    for chunk in seg_res.iter_content(chunk_size=65536):
-                        if chunk:
-                            self.wfile.write(chunk)
-                return
-            except Exception as e:
-                self.send_error(500, str(e))
-                return
-
         self.send_error(404)
 
 def main():
     server = ThreadedHTTPServer(("0.0.0.0", PORT), HLSProxyHandler)
     print(f"============================================================")
-    print(f" High-Performance HLS Stream Proxy running on port {PORT}")
+    print(f" Zero-Bandwidth HLS Stream Proxy running on port {PORT}")
     print(f"============================================================")
     server.serve_forever()
 
