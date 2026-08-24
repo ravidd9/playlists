@@ -5,6 +5,7 @@ import urllib.parse
 import requests
 import re
 import time
+import threading
 import urllib3
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -24,6 +25,9 @@ CHANNELS = {
 }
 
 STREAM_CACHE = {}  # ch_id -> (stream_url, timestamp)
+PREFETCHED_MANIFESTS = {}  # ch_id -> (manifest_text, timestamp)
+ACTIVE_REQUESTS = {}  # ch_id -> timestamp of last request
+LOCK = threading.Lock()
 
 session = requests.Session()
 session.headers.update({
@@ -41,7 +45,7 @@ def get_stream_url(ch_id, force_fresh=False):
 
     page_url = f"https://1nextbet7.tv/kanal-izle/{ch_id}"
     try:
-        res = session.get(page_url, timeout=5, verify=False)
+        res = session.get(page_url, timeout=4, verify=False)
         sources = re.findall(r'<source[^>]+src=["\']([^"\']+)', res.text, re.IGNORECASE)
         for s in sources:
             if any(ext in s.lower() for ext in [".css", ".m3u8", "mono"]):
@@ -50,6 +54,55 @@ def get_stream_url(ch_id, force_fresh=False):
     except Exception:
         pass
     return None
+
+def fetch_manifest_for_channel(ch_id):
+    """Fetch and parse upstream M3U8 manifest, returning formatted text."""
+    stream_url = get_stream_url(ch_id)
+    if not stream_url:
+        return None
+
+    try:
+        m3u8_res = session.get(stream_url, timeout=4, verify=False)
+        if not m3u8_res.ok:
+            stream_url = get_stream_url(ch_id, force_fresh=True)
+            if stream_url:
+                m3u8_res = session.get(stream_url, timeout=4, verify=False)
+
+        if not m3u8_res.ok:
+            return None
+
+        lines = m3u8_res.text.splitlines()
+        new_lines = []
+        for line in lines:
+            line_str = line.strip()
+            if line_str.startswith("http"):
+                new_lines.append(f"{line_str}#.ts")
+            else:
+                new_lines.append(line)
+
+        return "\n".join(new_lines)
+    except Exception:
+        return None
+
+def background_prefetch_worker():
+    """Background thread that continuously pre-fetches manifests every 3s for active channels."""
+    while True:
+        try:
+            now = time.time()
+            with LOCK:
+                # Active if player requested it within the last 60 seconds
+                active_ids = [ch for ch, last_ts in ACTIVE_REQUESTS.items() if now - last_ts < 60]
+
+            for ch_id in active_ids:
+                manifest = fetch_manifest_for_channel(ch_id)
+                if manifest:
+                    with LOCK:
+                        PREFETCHED_MANIFESTS[ch_id] = (manifest, now)
+
+        except Exception:
+            pass
+
+        time.sleep(3)
 
 class ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
     daemon_threads = True
@@ -80,58 +133,50 @@ class HLSProxyHandler(BaseHTTPRequestHandler):
             self.wfile.write("\n".join(m3u).encode("utf-8"))
             return
 
-        # 2. Serve M3U8 Manifest with direct segment URLs appended with #.ts
+        # 2. Serve M3U8 Manifest instantly from RAM (0ms latency)
         if path.startswith("/live/") and path.endswith(".m3u8"):
             ch_id = path.replace("/live/", "").replace(".m3u8", "")
             if ch_id not in CHANNELS:
                 self.send_error(404, "Channel Not Found")
                 return
 
-            stream_url = get_stream_url(ch_id)
-            if not stream_url:
-                self.send_error(502, "Stream URL Not Found")
+            now = time.time()
+            with LOCK:
+                ACTIVE_REQUESTS[ch_id] = now
+                cached_manifest, ts = PREFETCHED_MANIFESTS.get(ch_id, (None, 0))
+
+            # If pre-fetched manifest is fresh (< 6 seconds old), serve instantly from RAM
+            if cached_manifest and (now - ts < 6):
+                manifest_text = cached_manifest
+            else:
+                # Fetch synchronously if not in RAM yet
+                manifest_text = fetch_manifest_for_channel(ch_id)
+                if manifest_text:
+                    with LOCK:
+                        PREFETCHED_MANIFESTS[ch_id] = (manifest_text, now)
+
+            if not manifest_text:
+                self.send_error(502, "Stream Manifest Unavailable")
                 return
 
-            try:
-                m3u8_res = session.get(stream_url, timeout=5, verify=False)
-                if not m3u8_res.ok:
-                    stream_url = get_stream_url(ch_id, force_fresh=True)
-                    if stream_url:
-                        m3u8_res = session.get(stream_url, timeout=5, verify=False)
-
-                if not m3u8_res.ok:
-                    self.send_error(502, f"Upstream error {m3u8_res.status_code}")
-                    return
-
-                lines = m3u8_res.text.splitlines()
-                new_lines = []
-
-                for line in lines:
-                    line_str = line.strip()
-                    if line_str.startswith("http"):
-                        # Direct video segment URL with #.ts anchor so media player treats chunk as MPEG-TS
-                        new_lines.append(f"{line_str}#.ts")
-                    else:
-                        new_lines.append(line)
-
-                self.send_response(200)
-                self.send_header("Content-Type", "application/vnd.apple.mpegurl")
-                self.send_header("Access-Control-Allow-Origin", "*")
-                self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
-                self.end_headers()
-                self.wfile.write("\n".join(new_lines).encode("utf-8"))
-                return
-
-            except Exception as e:
-                self.send_error(500, str(e))
-                return
+            self.send_response(200)
+            self.send_header("Content-Type", "application/vnd.apple.mpegurl")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
+            self.end_headers()
+            self.wfile.write(manifest_text.encode("utf-8"))
+            return
 
         self.send_error(404)
 
 def main():
+    # Start background pre-fetcher thread
+    worker = threading.Thread(target=background_prefetch_worker, daemon=True)
+    worker.start()
+
     server = ThreadedHTTPServer(("0.0.0.0", PORT), HLSProxyHandler)
     print(f"============================================================")
-    print(f" Zero-Bandwidth HLS Stream Proxy running on port {PORT}")
+    print(f" Zero-Latency HLS Stream Proxy running on port {PORT}")
     print(f"============================================================")
     server.serve_forever()
 
