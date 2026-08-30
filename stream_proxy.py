@@ -46,7 +46,7 @@ def get_stream_url(ch_id, force_fresh=False):
 
     page_url = f"https://1nextbet7.tv/kanal-izle/{ch_id}"
     try:
-        res = session.get(page_url, timeout=4, verify=False)
+        res = session.get(page_url, timeout=5, verify=False)
         sources = re.findall(r'<source[^>]+src=["\']([^"\']+)', res.text, re.IGNORECASE)
         valid_src = [s for s in sources if any(ext in s.lower() for ext in [".css", ".m3u8", "mono"])]
         if valid_src:
@@ -63,11 +63,11 @@ def update_channel_manifest(ch_id):
         return None
 
     try:
-        m3u8_res = session.get(stream_url, timeout=4, verify=False)
+        m3u8_res = session.get(stream_url, timeout=5, verify=False)
         if not m3u8_res.ok:
             stream_url = get_stream_url(ch_id, force_fresh=True)
             if stream_url:
-                m3u8_res = session.get(stream_url, timeout=4, verify=False)
+                m3u8_res = session.get(stream_url, timeout=5, verify=False)
 
         if not m3u8_res.ok:
             return None
@@ -183,7 +183,7 @@ class HLSProxyHandler(BaseHTTPRequestHandler):
             self.wfile.write("\n".join(m3u).encode("utf-8"))
             return
 
-        # 2. Serve M3U8 Manifest with deep buffer instantly from RAM
+        # 2. Serve M3U8 Manifest with Never-Fail Fallback (Prevents Auto-Skipping)
         if path.startswith("/live/") and path.endswith(".m3u8"):
             ch_id = path.replace("/live/", "").replace(".m3u8", "")
             if ch_id not in CHANNELS:
@@ -194,14 +194,29 @@ class HLSProxyHandler(BaseHTTPRequestHandler):
             with LOCK:
                 ACTIVE_REQUESTS[ch_id] = now
                 buf = SLIDING_BUFFERS.get(ch_id)
-                manifest_text = buf["manifest"] if buf and buf["manifest"] and (now - buf["last_update"] < 10) else None
+                cached_manifest = buf["manifest"] if buf and buf.get("manifest") else None
+                is_fresh = (now - buf["last_update"] < 8) if buf and buf.get("last_update") else False
+
+            # Use fresh cached manifest if available
+            if cached_manifest and is_fresh:
+                manifest_text = cached_manifest
+            else:
+                # Attempt to update manifest
+                new_manifest = update_channel_manifest(ch_id)
+                if new_manifest:
+                    manifest_text = new_manifest
+                elif cached_manifest:
+                    # Never-Fail Fallback: Return last known manifest instead of 502 error
+                    manifest_text = cached_manifest
+                else:
+                    manifest_text = None
 
             if not manifest_text:
-                manifest_text = update_channel_manifest(ch_id)
-
-            if not manifest_text:
-                self.send_error(502, "Stream Manifest Unavailable")
-                return
+                # Basic emergency fallback HLS header so player pauses instead of skipping
+                manifest_text = (
+                    "#EXTM3U\n#EXT-X-VERSION:3\n#EXT-X-TARGETDURATION:10\n"
+                    "#EXT-X-MEDIA-SEQUENCE:0\n#EXT-X-ALLOW-CACHE:NO\n"
+                )
 
             self.send_response(200)
             self.send_header("Content-Type", "application/vnd.apple.mpegurl")
@@ -219,7 +234,7 @@ def main():
 
     server = ThreadedHTTPServer(("0.0.0.0", PORT), HLSProxyHandler)
     print(f"============================================================")
-    print(f" Deep-Buffer Zero-Lag HLS Proxy running on port {PORT}")
+    print(f" Never-Fail Multi-User HLS Proxy running on port {PORT}")
     print(f"============================================================")
     server.serve_forever()
 
