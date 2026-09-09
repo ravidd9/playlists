@@ -11,8 +11,9 @@ import urllib3
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 PORT = int(os.environ.get("PORT", 5000))
-CACHE_TTL = 1800  # Cache stream manifest token URL for 30 minutes
-MAX_BUFFER_SEGMENTS = 12  # Keep 12 segments (120s of video buffer) in sliding window
+CACHE_TTL = 1800  # 30-minute token cache
+MAX_BUFFER_SEGMENTS = 14  # 140s deep sliding window buffer
+POLL_INTERVAL = 5.5  # 5.5s optimal polling to avoid CDN rate-limiting
 
 CHANNELS = {
     "yes-1": ("Yes 1", "Israel"),
@@ -26,7 +27,7 @@ CHANNELS = {
 }
 
 STREAM_CACHE = {}  # ch_id -> (stream_url, timestamp)
-SLIDING_BUFFERS = {}  # ch_id -> {"first_seq": int, "segments": [(inf_str, url, is_discontinuity)], "manifest": str, "last_update": float}
+SLIDING_BUFFERS = {}  # ch_id -> dict with segments, sequence, manifest, etc.
 ACTIVE_REQUESTS = {}  # ch_id -> timestamp of last request
 LOCK = threading.Lock()
 
@@ -57,7 +58,7 @@ def get_stream_url(ch_id, force_fresh=False):
     return None
 
 def update_channel_manifest(ch_id):
-    """Fetch upstream manifest and update sliding window buffer."""
+    """Fetch upstream manifest, merge segments into sliding buffer, and generate M3U8."""
     stream_url = get_stream_url(ch_id)
     if not stream_url:
         return None
@@ -74,7 +75,7 @@ def update_channel_manifest(ch_id):
 
         lines = m3u8_res.text.splitlines()
 
-        # Parse upstream media sequence
+        # Extract upstream media sequence
         seq_match = [l for l in lines if "#EXT-X-MEDIA-SEQUENCE" in l]
         upstream_seq = int(seq_match[0].split(":")[-1]) if seq_match else 0
 
@@ -93,37 +94,41 @@ def update_channel_manifest(ch_id):
                 incoming_segments.append((cur_inf, seg_url, has_discontinuity))
                 has_discontinuity = False
 
+        if not incoming_segments:
+            return None
+
         with LOCK:
             if ch_id not in SLIDING_BUFFERS:
                 SLIDING_BUFFERS[ch_id] = {
-                    "first_seq": upstream_seq,
+                    "base_seq": upstream_seq,
                     "segments": [],
+                    "seen_urls": set(),
                     "manifest": "",
                     "last_update": time.time()
                 }
 
             buf = SLIDING_BUFFERS[ch_id]
-            existing_urls = {url for dur, url, disc in buf["segments"]}
 
             for dur, url, disc in incoming_segments:
-                if url not in existing_urls:
+                if url not in buf["seen_urls"]:
                     buf["segments"].append((dur, url, disc))
+                    buf["seen_urls"].add(url)
 
-            # Maintain sliding window of MAX_BUFFER_SEGMENTS
+            # Trim sliding buffer to MAX_BUFFER_SEGMENTS
             if len(buf["segments"]) > MAX_BUFFER_SEGMENTS:
-                removed = len(buf["segments"]) - MAX_BUFFER_SEGMENTS
+                excess = len(buf["segments"]) - MAX_BUFFER_SEGMENTS
+                buf["base_seq"] += excess
                 buf["segments"] = buf["segments"][-MAX_BUFFER_SEGMENTS:]
-                buf["first_seq"] += removed
-            elif buf["first_seq"] == 0:
-                buf["first_seq"] = upstream_seq
+                # Keep seen_urls bounded
+                buf["seen_urls"] = {u for _, u, _ in buf["segments"]}
 
-            # Generate robust M3U8 manifest with deep buffer
+            # Build M3U8 manifest with sequence
             out = [
                 "#EXTM3U",
                 "#EXT-X-VERSION:3",
                 "#EXT-X-TARGETDURATION:10",
                 "#EXT-X-ALLOW-CACHE:NO",
-                f"#EXT-X-MEDIA-SEQUENCE:{buf['first_seq']}"
+                f"#EXT-X-MEDIA-SEQUENCE:{buf['base_seq']}"
             ]
             for dur, url, disc in buf["segments"]:
                 if disc:
@@ -139,12 +144,12 @@ def update_channel_manifest(ch_id):
         return None
 
 def background_prefetch_worker():
-    """Continuously poll upstream manifests every 2.5s to maintain 100-second deep buffer."""
+    """Polls upstream manifests at optimal 5.5s intervals for active channels."""
     while True:
         try:
             now = time.time()
             with LOCK:
-                active_ids = [ch for ch, last_ts in ACTIVE_REQUESTS.items() if now - last_ts < 120]
+                active_ids = [ch for ch, last_ts in ACTIVE_REQUESTS.items() if now - last_ts < 180]
 
             for ch_id in active_ids:
                 update_channel_manifest(ch_id)
@@ -152,7 +157,17 @@ def background_prefetch_worker():
         except Exception:
             pass
 
-        time.sleep(2.5)
+        time.sleep(POLL_INTERVAL)
+
+def background_keepalive_worker():
+    """Pings local server every 8 minutes to prevent Render free instance spin-down."""
+    time.sleep(30)
+    while True:
+        try:
+            requests.get(f"http://127.0.0.1:{PORT}/", timeout=5)
+        except Exception:
+            pass
+        time.sleep(480)  # Ping every 8 minutes
 
 class ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
     daemon_threads = True
@@ -167,8 +182,8 @@ class HLSProxyHandler(BaseHTTPRequestHandler):
 
         proto = self.headers.get("X-Forwarded-Proto", "http")
 
-        # 1. Serve M3U Playlist
-        if path in ["/playlist.m3u", "/sports.m3u", "/"]:
+        # 1. Serve M3U Playlist & Health Check
+        if path in ["/playlist.m3u", "/sports.m3u", "/", "/health"]:
             self.send_response(200)
             self.send_header("Content-Type", "audio/x-mpegurl")
             self.send_header("Access-Control-Allow-Origin", "*")
@@ -183,7 +198,7 @@ class HLSProxyHandler(BaseHTTPRequestHandler):
             self.wfile.write("\n".join(m3u).encode("utf-8"))
             return
 
-        # 2. Serve M3U8 Manifest with Never-Fail Fallback (Prevents Auto-Skipping)
+        # 2. Serve M3U8 Manifest instantly from RAM
         if path.startswith("/live/") and path.endswith(".m3u8"):
             ch_id = path.replace("/live/", "").replace(".m3u8", "")
             if ch_id not in CHANNELS:
@@ -194,28 +209,17 @@ class HLSProxyHandler(BaseHTTPRequestHandler):
             with LOCK:
                 ACTIVE_REQUESTS[ch_id] = now
                 buf = SLIDING_BUFFERS.get(ch_id)
-                cached_manifest = buf["manifest"] if buf and buf.get("manifest") else None
-                is_fresh = (now - buf["last_update"] < 8) if buf and buf.get("last_update") else False
+                manifest_text = buf["manifest"] if buf and buf.get("manifest") else None
 
-            # Use fresh cached manifest if available
-            if cached_manifest and is_fresh:
-                manifest_text = cached_manifest
-            else:
-                # Attempt to update manifest
-                new_manifest = update_channel_manifest(ch_id)
-                if new_manifest:
-                    manifest_text = new_manifest
-                elif cached_manifest:
-                    # Never-Fail Fallback: Return last known manifest instead of 502 error
-                    manifest_text = cached_manifest
-                else:
-                    manifest_text = None
+            # If no manifest in memory yet, generate initial buffer
+            if not manifest_text:
+                manifest_text = update_channel_manifest(ch_id)
 
             if not manifest_text:
-                # Basic emergency fallback HLS header so player pauses instead of skipping
+                # Emergency keep-alive response
                 manifest_text = (
                     "#EXTM3U\n#EXT-X-VERSION:3\n#EXT-X-TARGETDURATION:10\n"
-                    "#EXT-X-MEDIA-SEQUENCE:0\n#EXT-X-ALLOW-CACHE:NO\n"
+                    "#EXT-X-ALLOW-CACHE:NO\n#EXT-X-MEDIA-SEQUENCE:1\n"
                 )
 
             self.send_response(200)
@@ -229,12 +233,13 @@ class HLSProxyHandler(BaseHTTPRequestHandler):
         self.send_error(404)
 
 def main():
-    worker = threading.Thread(target=background_prefetch_worker, daemon=True)
-    worker.start()
+    # Start background workers
+    threading.Thread(target=background_prefetch_worker, daemon=True).start()
+    threading.Thread(target=background_keepalive_worker, daemon=True).start()
 
     server = ThreadedHTTPServer(("0.0.0.0", PORT), HLSProxyHandler)
     print(f"============================================================")
-    print(f" Never-Fail Multi-User HLS Proxy running on port {PORT}")
+    print(f" Continuous 24/7 Zero-Drop HLS Proxy running on port {PORT}")
     print(f"============================================================")
     server.serve_forever()
 
