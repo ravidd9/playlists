@@ -2,35 +2,35 @@
 #EXTINF:-1 tvg-id="Yes1.il" group-title="Israel",Yes 1
 #EXTVLCOPT:http-referrer=https://1nextbet7.tv/
 #EXTVLCOPT:http-user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64)
-https://2lacasaba.site/yessport1/mono.css?token=5fb04ad6b29e8b7fb7d72831d72656ccb183e937&expires=1790999819
+https://2lacasaba.site/yessport1/mono.css?token=3f185e0702e3435baf4cddaabe9fdaf54a98775f&expires=1791088014
 #EXTINF:-1 tvg-id="Yes2.il" group-title="Israel",Yes 2
 #EXTVLCOPT:http-referrer=https://1nextbet7.tv/
 #EXTVLCOPT:http-user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64)
-https://2lacasaba.site/yessport2/mono.css?token=d4b3380c3efbcd292a15d6d561fd407cb31cd81b&expires=1790999821
+https://2lacasaba.site/yessport2/mono.css?token=21adeb9d89eb7074dadfa5dd9934fcaf126fc18e&expires=1791088015
 #EXTINF:-1 tvg-id="Yes3.il" group-title="Israel",Yes 3
 #EXTVLCOPT:http-referrer=https://1nextbet7.tv/
 #EXTVLCOPT:http-user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64)
-https://2lacasaba.site/yessport3/mono.css?token=164421018050e9a7b7d9338548bec161220cad5e&expires=1790999822
+https://2lacasaba.site/yessport3/mono.css?token=f5a9ba4da1f6d285aa06ab7b742837e6d7a6cc6f&expires=1791088017
 #EXTINF:-1 tvg-id="Yes4.il" group-title="Israel",Yes 4
 #EXTVLCOPT:http-referrer=https://1nextbet7.tv/
 #EXTVLCOPT:http-user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64)
-https://2lacasaba.site/yessport4/mono.css?token=9041be5115d69bb6372d391dad7b62f39be2da4a&expires=1790999823
+https://2lacasaba.site/yessport4/mono.css?token=1386a55976099627be3c49ea2f299d34807b0aa1&expires=1791088018
 #EXTINF:-1 tvg-id="Yes5.il" group-title="Israel",Yes 5
 #EXTVLCOPT:http-referrer=https://1nextbet7.tv/
 #EXTVLCOPT:http-user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64)
-https://2lacasaba.site/yessport5/mono.css?token=17f465c2f2dd0d8c549dc7a79c11e3782d963c3b&expires=1790999824
+https://2lacasaba.site/yessport5/mono.css?token=2fb9da68c5a3d217bf0aafb8bea9747ffd198b79&expires=1791088019
 #EXTINF:-1 tvg-id="Kan11.il" group-title="Israel",Kan 11
 #EXTVLCOPT:http-referrer=https://1nextbet7.tv/
 #EXTVLCOPT:http-user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64)
-https://2lacasaba.site/kan11/mono.css?token=17f465c2f2dd0d8c549dc7a79c11e3782d963c3b&expires=1790999824
+https://2lacasaba.site/kan11/mono.css?token=d9e6de46f4ac40d8f2875a603633e419f9a5bcc3&expires=1791088020
 #EXTINF:-1 tvg-id="One.il" group-title="Sports",ONE HD
 #EXTVLCOPT:http-referrer=https://1nextbet7.tv/
 #EXTVLCOPT:http-user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64)
-https://2lacasaba.site/onesport/mono.css?token=72228c5e50f472fa938832628ea8d19c0dcec380&expires=1790999825
+https://2lacasaba.site/onesport/mono.css?token=38543fd7fe5df2316da4d3e0ad8356821644cf4f&expires=1791088021
 #EXTINF:-1 tvg-id="One2.il" group-title="Sports",ONE 2 HD
 #EXTVLCOPT:http-referrer=https://1nextbet7.tv/
 #EXTVLCOPT:http-user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64)
-https://2lacasaba.site/onesport2/mono.css?token=fe7617943a65c6cb2966fb67617445a8b983511c&expires=1790999829
+https://2lacasaba.site/onesport2/mono.css?token=a6b42b0efc250cbd215c5189610bcc1dde986583&expires=1791088022
 #EXTINF:-1 tvg-id="30AGolfKingdom.us@SD" tvg-logo="https://i.imgur.com/Lv53nh4.png" group-title="Sports",30A Golf Kingdom (720p)
 https://30a-tv.com/feeds/vidaa/golf.m3u8
 #EXTINF:-1 tvg-id="ASpor.tr@SD" tvg-logo="https://i.imgur.com/ZhkZzLf.png" group-title="Sports",A Spor SD (1080p)
@@ -51,9 +51,6 @@ http://88.212.15.19/live/test_arenasport/playlist.m3u8
 #EXTINF:-1 tvg-id="ArenaSport2.sk@SD" tvg-logo="https://i.imgur.com/Yq3Jf19.png" http-user-agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.3" group-title="Sports",Arena Sport 2
 #EXTVLCOPT:http-user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.3
 http://88.212.15.19/live/test_arenasport_dva/playlist.m3u8
-#EXTINF:-1 tvg-id="ArenaSportPremiumM1.mk@SD" tvg-logo="https://tvarenasport.mk/wp-content/themes/tvarenasport-mk/assets/channels/arena-m1.png" http-user-agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36" group-title="Sports",Arena Sport Premium M1
-#EXTVLCOPT:http-user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36
-https://racitonsen.s.gy/AM1P
 #EXTINF:-1 tvg-id="Arryadia.ma@SD" tvg-logo="https://i.imgur.com/XjzK3gZ.png" group-title="Sports",Arryadia
 http://149.100.11.252:8000/play/a065/index.m3u8
 #EXTINF:-1 tvg-id="AS3SportTV.ve@SD" tvg-logo="https://i.ibb.co/bRmGbsyV/A3-SPORTTV.jpg" group-title="Sports",AS3 Sport TV (1080p)
@@ -374,7 +371,7 @@ https://jmp2.uk/plu-608030eff4b6f70007e1684c.m3u8
 https://jmp2.uk/plu-5fc54366b04b2300072e31af.m3u8
 #EXTINF:-1 tvg-id="PremierSports.ph@SD" tvg-logo="https://i.imgur.com/BURPHzI.png" group-title="Sports",Premier Sports (1080p)
 https://amg19223-amg19223c3-amgplt0351.playout.now3.amagi.tv/playlist/amg19223-amg19223c3-amgplt0351/playlist.m3u8
-#EXTINF:-1 tvg-id="PrimaSport5.ro@SD" tvg-logo="" http-user-agent="Mozilla/5.0 (Linux; Android 15; Pixel 9) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Mobile Safari/537.36" group-title="Sports",Prima Sport 5 (480p)
+#EXTINF:-1 tvg-id="PrimaSport5.ro@SD" tvg-logo="https://www.media-max.ro/wp-content/uploads/2022/11/Prima-Sport-5-HD-disponibil-in-grila-Vodafone.jpg" http-user-agent="Mozilla/5.0 (Linux; Android 15; Pixel 9) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Mobile Safari/537.36" group-title="Sports",Prima Sport 5 (480p)
 #EXTVLCOPT:http-user-agent=Mozilla/5.0 (Linux; Android 15; Pixel 9) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Mobile Safari/537.36
 https://dokagents.site/live/pr5/mono.m3u8
 #EXTINF:-1 tvg-id="Prime.sy@HD" tvg-logo="https://prime1tv.com/wp-content/uploads/2025/12/7-1.png" group-title="General;Sports",Prime (Syria) (1080p)
@@ -430,8 +427,6 @@ http://stream.mcquack.net/235/index.m3u8
 #EXTINF:-1 tvg-id="SetantaSports.uk@HD" tvg-logo="https://scontent.flwo7-1.fna.fbcdn.net/v/t39.30808-6/364716463_853281776306116_3365262792418742642_n.jpg?stp=dst-webp_p843x403_q70&_nc_cat=109&ccb=1-7&_nc_sid=cc3e7e&_nc_ohc=cdryMbRE2MwQ7kNvwFeyihF&_nc_oc=Adqncj9xKrtg2aNKgZmuX6LGZlSfpAmh_HQEEkBciEg1tXwQqFuMtohNjM8-Z8hU_Ho&_nc_zt=23&_nc_ht=scontent.flwo7-1.fna&_nc_gid=nGCZSHk6GKFYzjwKY-aGWw&_nc_ss=7b289&oh=00_AQFswjCYfEBKcXRO2DpTL1Dz7arAN-82K47gi8qtwljzrw&oe=6A862750" http-user-agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Safari/537.36" group-title="Sports",Setanta Sports HD
 #EXTVLCOPT:http-user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Safari/537.36
 http://sewv654wfcsdwfi87fwvgbngh.siauliairsavlt.pw/iptv/8P7MBSH7RRPL53/20074/index.m3u8
-#EXTINF:-1 tvg-id="SkyRacing1.au@SD" tvg-logo="https://i.imgur.com/Hf0EiaW.png" group-title="Sports",Sky Racing 1 (720p)
-https://636ffd31f0e12.streamlock.net/RacingStream1/RacingStream1/playlist.m3u8
 #EXTINF:-1 tvg-id="SkyRacing2.au@SD" tvg-logo="https://i.imgur.com/TxQvFnQ.png" group-title="Sports",Sky Racing 2 (720p)
 https://636ffd31f0e12.streamlock.net/RacingStream2/RacingStream2/playlist.m3u8
 #EXTINF:-1 tvg-id="SlopesTV.us@SD" tvg-logo="https://i.imgur.com/8bzAfgK.png" group-title="Sports",Slopes TV (720p)
@@ -613,6 +608,8 @@ http://45.170.130.224:8000/play/a020/index.m3u8
 http://5.188.159.128:8070/udar/index.m3u8
 #EXTINF:-1 tvg-id="Unbeaten.us@SD" tvg-logo="https://i.imgur.com/LmkNt3v.png" group-title="Sports",Unbeaten (1080p)
 https://d1t5afz6qed3xk.cloudfront.net/Unbeaten.m3u8
+#EXTINF:-1 tvg-id="USANetwork.us@East" tvg-logo="https://upload.wikimedia.org/wikipedia/commons/thumb/d/d7/USA_Network_logo_%282016%29.svg/960px-USA_Network_logo_%282016%29.svg.png" group-title="Comedy;Movies;Series;Sports",USA Network (720p)
+http://190.197.41.183/USA_NETWORK/index.m3u8
 #EXTINF:-1 tvg-id="VSportGolf.se@SD" tvg-logo="https://i.imgur.com/wCw8Pmz.png" group-title="Sports",V Sport Golf [Not 24/7]
 http://315e5a5d.ottrast.com/iptv/8XFKA8883W9M5K/12077/index.m3u8
 #EXTINF:-1 tvg-id="VarzeshTV.ir@SD" tvg-logo="https://upload.wikimedia.org/wikipedia/fa/thumb/f/f5/Iribvarzesh2022.png/960px-Iribvarzesh2022.png" group-title="Sports",Varzesh TV
