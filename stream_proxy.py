@@ -14,6 +14,9 @@ import urllib3
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 PORT = int(os.environ.get("PORT", 5000))
+# Set by Render to the public onrender.com URL. Only traffic through Render's edge
+# counts as activity, so the keepalive must go here rather than to localhost.
+PUBLIC_URL = os.environ.get("RENDER_EXTERNAL_URL", "").rstrip("/")
 CACHE_TTL = 1800  # 30-minute token cache
 # Keep a short live window. A 14-segment DVR (~80s+) makes TVmate periodically
 # snap to live edge, which looks like a skip forward/back every 10-30s.
@@ -308,11 +311,13 @@ def background_prefetch_worker():
 
 
 def background_keepalive_worker():
-    """Pings local server every 8 minutes to prevent Render free instance spin-down."""
+    """Pings the public URL every 8 minutes so Render never sees 15 idle minutes."""
+    if not PUBLIC_URL:
+        return  # not on Render; nothing to keep awake
     time.sleep(30)
     while True:
         try:
-            requests.get(f"http://127.0.0.1:{PORT}/", timeout=5)
+            requests.get(f"{PUBLIC_URL}/health", timeout=10)
         except Exception:
             pass
         time.sleep(480)
@@ -430,6 +435,7 @@ def main():
     server = ThreadedHTTPServer(("0.0.0.0", PORT), HLSProxyHandler)
     print("============================================================")
     print(f" Continuous 24/7 Zero-Drop HLS Proxy running on port {PORT}")
+    print(f" Keepalive: {PUBLIC_URL + '/health' if PUBLIC_URL else 'off (RENDER_EXTERNAL_URL not set)'}")
     print("============================================================")
     server.serve_forever()
 
