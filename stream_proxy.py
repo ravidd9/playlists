@@ -35,6 +35,7 @@ STREAM_CACHE = {}  # ch_id -> (stream_url, timestamp)
 SLIDING_BUFFERS = {}  # ch_id -> buffer dict
 ACTIVE_REQUESTS = {}  # ch_id -> timestamp of last request
 LOCK = threading.Lock()
+UPDATE_LOCKS = {ch_id: threading.Lock() for ch_id in CHANNELS}  # one upstream refresh per channel at a time
 
 session = requests.Session()
 session.headers.update({
@@ -185,6 +186,13 @@ def _max_segment_duration(segments):
 
 def update_channel_manifest(ch_id):
     """Refresh the in-memory live window from upstream. Does not need the public host."""
+    # The prefetch worker and request handlers both refresh; serializing them keeps an
+    # older upstream snapshot from being merged after a newer one.
+    with UPDATE_LOCKS[ch_id]:
+        return _refresh_channel_manifest(ch_id)
+
+
+def _refresh_channel_manifest(ch_id):
     stream_url = get_stream_url(ch_id)
     if not stream_url:
         return False
@@ -203,34 +211,38 @@ def update_channel_manifest(ch_id):
         if not incoming:
             return False
 
-        incoming_urls = {seg["url"] for seg in incoming}
         needed_target = max(target_duration, int(math.ceil(_max_segment_duration(incoming) or 6)))
 
         with LOCK:
             buf = SLIDING_BUFFERS.get(ch_id)
-            overlap = bool(buf and any(url in buf["seen_urls"] for url in incoming_urls))
+            # Proxy sequence number of each segment already in the window, by upstream URL.
+            known = {}
+            if buf:
+                known = {seg["url"]: buf["base_seq"] + i for i, seg in enumerate(buf["segments"])}
+            # Newest incoming segment we already serve. Only segments after it are new:
+            # upstream can list older segments that have already slid out of our window.
+            anchor = next((i for i in range(len(incoming) - 1, -1, -1) if incoming[i]["url"] in known), None)
 
-            if not buf or not overlap:
+            if anchor is None:
                 SLIDING_BUFFERS[ch_id] = {
                     "base_seq": upstream_seq,
                     "segments": list(incoming),
-                    "seen_urls": set(incoming_urls),
                     "target_duration": needed_target,
                     "last_update": time.time(),
                 }
                 buf = SLIDING_BUFFERS[ch_id]
             else:
-                for seg in incoming:
-                    if seg["url"] not in buf["seen_urls"]:
+                next_seq = buf["base_seq"] + len(buf["segments"])
+                anchor_seq = known[incoming[anchor]["url"]]
+                for step, seg in enumerate(incoming[anchor + 1:], start=1):
+                    if anchor_seq + step >= next_seq:
                         buf["segments"].append(seg)
-                        buf["seen_urls"].add(seg["url"])
                 _fill_pdts(buf["segments"])
 
             if len(buf["segments"]) > LIVE_WINDOW_SEGMENTS:
                 excess = len(buf["segments"]) - LIVE_WINDOW_SEGMENTS
                 buf["base_seq"] += excess
                 buf["segments"] = buf["segments"][-LIVE_WINDOW_SEGMENTS:]
-                buf["seen_urls"] = {seg["url"] for seg in buf["segments"]}
 
             # HLS forbids TARGETDURATION from shrinking mid-stream.
             buf["target_duration"] = max(buf.get("target_duration", 6), needed_target)
