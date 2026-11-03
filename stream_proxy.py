@@ -1,3 +1,4 @@
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from socketserver import ThreadingMixIn
@@ -190,9 +191,17 @@ def _max_segment_duration(segments):
 def update_channel_manifest(ch_id):
     """Refresh the in-memory live window from upstream. Does not need the public host."""
     # The prefetch worker and request handlers both refresh; serializing them keeps an
-    # older upstream snapshot from being merged after a newer one.
-    with UPDATE_LOCKS[ch_id]:
+    # older upstream snapshot from being merged after a newer one. A caller that finds a
+    # refresh already running waits for that one instead of fetching again afterwards,
+    # so a slow or failing upstream costs a player one timeout, not two.
+    lock = UPDATE_LOCKS[ch_id]
+    if not lock.acquire(blocking=False):
+        with lock:
+            return ch_id in SLIDING_BUFFERS
+    try:
         return _refresh_channel_manifest(ch_id)
+    finally:
+        lock.release()
 
 
 def _refresh_channel_manifest(ch_id):
@@ -227,8 +236,12 @@ def _refresh_channel_manifest(ch_id):
             anchor = next((i for i in range(len(incoming) - 1, -1, -1) if incoming[i]["url"] in known), None)
 
             if anchor is None:
+                # disc_seq counts the discontinuities at or before the first segment (whose
+                # tag is never rendered). It must never go backwards, even on a reset.
+                disc_seq = (buf["disc_seq"] if buf else 0) + (1 if incoming[0]["disc"] else 0)
                 SLIDING_BUFFERS[ch_id] = {
                     "base_seq": upstream_seq,
+                    "disc_seq": disc_seq,
                     "segments": list(incoming),
                     "target_duration": needed_target,
                     "last_update": time.time(),
@@ -244,6 +257,9 @@ def _refresh_channel_manifest(ch_id):
 
             if len(buf["segments"]) > LIVE_WINDOW_SEGMENTS:
                 excess = len(buf["segments"]) - LIVE_WINDOW_SEGMENTS
+                # HLS requires bumping DISCONTINUITY-SEQUENCE for every tag that leaves the
+                # playlist; otherwise players misplace segments after an ad break.
+                buf["disc_seq"] += sum(1 for seg in buf["segments"][1:excess + 1] if seg["disc"])
                 buf["base_seq"] += excess
                 buf["segments"] = buf["segments"][-LIVE_WINDOW_SEGMENTS:]
 
@@ -267,6 +283,7 @@ def render_manifest(ch_id, proto, host):
             "#EXT-X-VERSION:3",
             f"#EXT-X-TARGETDURATION:{buf['target_duration']}",
             f"#EXT-X-MEDIA-SEQUENCE:{buf['base_seq']}",
+            f"#EXT-X-DISCONTINUITY-SEQUENCE:{buf['disc_seq']}",
         ]
 
         first_pdt = next((seg["pdt"] for seg in buf["segments"] if seg.get("pdt")), None)
@@ -296,6 +313,9 @@ def lookup_segment(ch_id, seq):
 
 def background_prefetch_worker():
     """Polls upstream manifests for channels that a player has requested recently."""
+    # One worker per channel, so a slow upstream only delays its own channel.
+    pool = ThreadPoolExecutor(max_workers=len(CHANNELS))
+    in_flight = {}  # ch_id -> Future of its current refresh
     while True:
         try:
             now = time.time()
@@ -303,7 +323,8 @@ def background_prefetch_worker():
                 active_ids = [ch for ch, last_ts in ACTIVE_REQUESTS.items() if now - last_ts < 180]
 
             for ch_id in active_ids:
-                update_channel_manifest(ch_id)
+                if ch_id not in in_flight or in_flight[ch_id].done():
+                    in_flight[ch_id] = pool.submit(update_channel_manifest, ch_id)
         except Exception:
             pass
 
